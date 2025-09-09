@@ -16,6 +16,7 @@ def main():
     sys.exit(app.exec_())
 
 
+
 def getData():
     city = "Manhattan Beach"
     url = "{0}/current.json?key={1}&q={2}".format(WEATHER_BASE_URL, WEATHER_API_KEY, city)
