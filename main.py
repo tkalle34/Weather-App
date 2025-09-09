@@ -47,6 +47,7 @@ def getData():
 
     return meteoData
 
+
 class WeatherApp(QWidget):
     def __init__(self):
         super().__init__()
