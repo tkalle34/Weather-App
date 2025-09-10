@@ -3,10 +3,24 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLabel
 from PyQt5.QtCore import QTimer, Qt
 import sys
 from datetime import datetime
+from zoneinfo import ZoneInfo
+from astral import Observer
+from astral.sun import dawn, dusk
+from astral.moon import phase as moon_age
+from skyfield.api import load
+from skyfield import almanac
+
+
+
 
 WEATHER_API_KEY = "c5f746a982fb4c9ea6464739250709"
 WEATHER_BASE_URL = "http://api.weatherapi.com/v1"
 METEO_BASE_URL = "https://api.open-meteo.com/v1/forecast"
+
+LAT = 33.8847
+LON = -118.41
+TZ = ZoneInfo("America/Los_Angeles")
+
 
 def main():
 
@@ -27,8 +41,8 @@ def getData():
     print(weatherData)
 
     params = {
-        "latitude": 33.8847,
-        "longitude": -118.41,
+        "latitude": LAT,
+        "longitude": LON,
         "daily": "sunset,sunrise,precipitation_probability_max,precipitation_hours",
         #"hourly": "precipitation_probability",
         "current": "precipitation,is_day,temperature_2m,cloud_cover",
@@ -46,12 +60,74 @@ def getData():
 
     return meteoData
 
+def astro_dawn_dusk(d: date | None = None):
+    if d is None:
+        d = date.today()
+    observer = Observer(latitude=LAT, longitude=LON)
+    adawn = dawn(observer, date=d, tzinfo=TZ, depression=18)
+    adusk = dusk(observer, date=d, tzinfo=TZ, depression=18)
+    return adawn, adusk
+
+def moon_phase_name(d: date | None = None):
+    if d is None:
+        d = date.today()
+    age = moon_age(d)
+    if age < 1.0:
+        return "New Moon"
+    elif age < 6.0:
+        return "Waxing Crescent"
+    elif age < 8.5:
+        return "First Quarter"
+    elif age < 13.5:
+        return "Waxing Gibbous"
+    elif age < 15.5:
+        return "Full Moon"
+    elif age < 21.0:
+        return "Waning Gibbous"
+    elif age < 23.5:
+        return "Last Quarter"
+    elif age < 28.5:
+        return "Waning Crescent"
+    else:
+        return "New Moon"
+
+_SF_CACHE = {"eph": None, "ts": None}
+def _load_ephemeris():
+    if _SF_CACHE["eph"] is None:
+        _SF_CACHE["eph"] = load("de421.bsp")
+        _SF_CACHE["ts"] = load.timescale()
+    return _SF_CACHE["eph"], _SF_CACHE["ts"]
+
+def next_new_and_full_local_tz():
+    eph, ts = _load_ephemeris()
+    t0 = ts.now()
+    t1 = ts.utc(datetime.utcnow() + timedelta(days=90))  # generous window
+    phase_func = almanac.moon_phases(eph)
+    times, phases = almanac.find_discrete(t0, t1, phase_func)
+
+    next_new = None
+    next_full = None
+    for t, ph in zip(times, phases):
+        if ph == 0 and next_new is None:
+            next_new = t
+        if ph == 2 and next_full is None:
+            next_full = t
+        if next_new and next_full:
+            break
+
+    def to_local(sftime):
+        dt_utc = sftime.utc_datetime().replace(tzinfo=ZoneInfo("UTC"))
+        return dt_utc.astimezone(TZ)
+
+    return (to_local(next_new) if next_new else None,
+            to_local(next_full) if next_full else None)
+
 
 class WeatherApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Weather")
-        self.setGeometry(200, 200, 300, 150)
+        self.setGeometry(200, 200, 360, 380)
 
 
 
@@ -100,17 +176,35 @@ class WeatherApp(QWidget):
 
 
 
+        self.astroHeader = QLabel("Astronomy:", self)
+        self.astroHeader.setAlignment(Qt.AlignCenter)
+        self.astroHeader.setGeometry(50, 260, 260, 20)
 
+        self.moonPhaseLabel = QLabel("Moon phase: …", self)
+        self.moonPhaseLabel.setAlignment(Qt.AlignCenter)
+        self.moonPhaseLabel.setGeometry(50, 280, 260, 20)
+
+        self.astroDawnLabel = QLabel("Astronomical dawn: …", self)
+        self.astroDawnLabel.setAlignment(Qt.AlignCenter)
+        self.astroDawnLabel.setGeometry(50, 300, 260, 20)
+
+        self.astroDuskLabel = QLabel("Astronomical dusk: …", self)
+        self.astroDuskLabel.setAlignment(Qt.AlignCenter)
+        self.astroDuskLabel.setGeometry(50, 320, 260, 20)
+
+        self.nextMoonsLabel = QLabel("Next New / Full: …", self)
+        self.nextMoonsLabel.setAlignment(Qt.AlignCenter)
+        self.nextMoonsLabel.setGeometry(50, 340, 260, 20)
 
 
 
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_weather)
+        self.timer.timeout.connect(self.updateWeatherCurrent())
         self.timer.start(60000)
 
-        self.update_weather()
+        self.updateWeatherCurrent()
 
-    def update_weather(self):
+    def updateWeatherCurrent(self):
         meteoData = getData()
         temp = meteoData["current"]["temperature_2m"]
         clouds = meteoData["current"]["cloud_cover"]
@@ -134,6 +228,20 @@ class WeatherApp(QWidget):
         self.sunsetLabel.setText("Sunset: {0}".format(sunset))
         self.precipProbLabel.setText("Precipitation Probability: {0}%".format(precipProb[0]))
         self.precipHrsLabel.setText("Precipitation Hours: {0} hours".format(precipHrs[0]))
+
+
+        self.moonPhaseLabel.setText(f"Moon Phase: {moon_phase_name()}")
+
+        adawn, adusk = astro_dawn_dusk()
+        self.astroDawnLabel.setText(f"Astronomical Dawn: {adawn.strftime('%I:%M %p')}")
+        self.astroDuskLabel.setText(f"Astronomical Dusk: {adusk.strftime('%I:%M %p')}")
+
+        new_dt, full_dt = next_new_and_full_local_tz()
+        if new_dt and full_dt:
+            self.nextMoonsLabel.setText(
+                f"Next New: {new_dt.strftime('%b %d %I:%M %p')}  •  "
+                f"Next Full: {full_dt.strftime('%b %d %I:%M %p')}"
+            )
 
 
 
