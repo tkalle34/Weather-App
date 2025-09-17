@@ -2,12 +2,12 @@ import requests
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel
 from PyQt5.QtCore import QTimer, Qt
 import sys
-from datetime import datetime
+from datetime import datetime, date, timedelta, timezone
 from zoneinfo import ZoneInfo
 from astral import Observer
 from astral.sun import dawn, dusk
 from astral.moon import phase as moon_age
-from skyfield.api import load
+from skyfield.api import load, utc
 from skyfield import almanac
 
 
@@ -101,7 +101,7 @@ def _load_ephemeris():
 def next_new_and_full_local_tz():
     eph, ts = _load_ephemeris()
     t0 = ts.now()
-    t1 = ts.utc(datetime.utcnow() + timedelta(days=90))  # generous window
+    t1 = ts.utc(datetime.now(timezone.utc) + timedelta(days=90))  # generous window
     phase_func = almanac.moon_phases(eph)
     times, phases = almanac.find_discrete(t0, t1, phase_func)
 
@@ -112,22 +112,22 @@ def next_new_and_full_local_tz():
             next_new = t
         if ph == 2 and next_full is None:
             next_full = t
-        if next_new and next_full:
+        if next_new is not None and next_full is not None:
             break
 
     def to_local(sftime):
         dt_utc = sftime.utc_datetime().replace(tzinfo=ZoneInfo("UTC"))
         return dt_utc.astimezone(TZ)
 
-    return (to_local(next_new) if next_new else None,
-            to_local(next_full) if next_full else None)
+    return (to_local(next_new) if next_new is not None else None,
+            to_local(next_full) if next_full is not None else None)
 
 
 class WeatherApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Weather")
-        self.setGeometry(200, 200, 360, 380)
+        self.setGeometry(200, 200, 450, 400)
 
 
 
@@ -180,26 +180,33 @@ class WeatherApp(QWidget):
         self.astroHeader.setAlignment(Qt.AlignCenter)
         self.astroHeader.setGeometry(50, 260, 260, 20)
 
-        self.moonPhaseLabel = QLabel("Moon phase: …", self)
-        self.moonPhaseLabel.setAlignment(Qt.AlignCenter)
-        self.moonPhaseLabel.setGeometry(50, 280, 260, 20)
+
+        self.astroDuskLabel = QLabel("Astronomical dusk: …", self)
+        self.astroDuskLabel.setAlignment(Qt.AlignCenter)
+        self.astroDuskLabel.setGeometry(50, 280, 260, 20)
 
         self.astroDawnLabel = QLabel("Astronomical dawn: …", self)
         self.astroDawnLabel.setAlignment(Qt.AlignCenter)
         self.astroDawnLabel.setGeometry(50, 300, 260, 20)
 
-        self.astroDuskLabel = QLabel("Astronomical dusk: …", self)
-        self.astroDuskLabel.setAlignment(Qt.AlignCenter)
-        self.astroDuskLabel.setGeometry(50, 320, 260, 20)
+        self.moonPhaseLabel = QLabel("Moon phase: …", self)
+        self.moonPhaseLabel.setAlignment(Qt.AlignCenter)
+        self.moonPhaseLabel.setGeometry(50, 320, 260, 20)
 
-        self.nextMoonsLabel = QLabel("Next New / Full: …", self)
-        self.nextMoonsLabel.setAlignment(Qt.AlignCenter)
-        self.nextMoonsLabel.setGeometry(50, 340, 260, 20)
+        self.nextFullLabel = QLabel("Next Full Moon: …", self)
+        self.nextFullLabel.setAlignment(Qt.AlignCenter)
+        self.nextFullLabel.setGeometry(50, 340, 260, 20)
+
+        self.nextNewLabel = QLabel("Next New Moon: …", self)
+        self.nextNewLabel.setAlignment(Qt.AlignCenter)
+        self.nextNewLabel.setGeometry(50, 360, 260, 20)
+
+
 
 
 
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.updateWeatherCurrent())
+        self.timer.timeout.connect(self.updateWeatherCurrent)
         self.timer.start(60000)
 
         self.updateWeatherCurrent()
@@ -237,11 +244,9 @@ class WeatherApp(QWidget):
         self.astroDuskLabel.setText(f"Astronomical Dusk: {adusk.strftime('%I:%M %p')}")
 
         new_dt, full_dt = next_new_and_full_local_tz()
-        if new_dt and full_dt:
-            self.nextMoonsLabel.setText(
-                f"Next New: {new_dt.strftime('%b %d %I:%M %p')}  •  "
-                f"Next Full: {full_dt.strftime('%b %d %I:%M %p')}"
-            )
+        if (new_dt is not None) and (full_dt is not None):
+            self.nextNewLabel.setText(f"Next New Moon: {new_dt.strftime('%b %d %I:%M %p')}")
+            self.nextFullLabel.setText(f"Next Full Moon: {full_dt.strftime('%b %d %I:%M %p')}")
 
 
 
