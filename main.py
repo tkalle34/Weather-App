@@ -127,7 +127,7 @@ class WeatherApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Weather")
-        self.setGeometry(200, 200, 450, 400)
+        self.setGeometry(200, 200, 450, 1000)
 
 
 
@@ -202,7 +202,17 @@ class WeatherApp(QWidget):
         self.nextNewLabel.setGeometry(50, 360, 260, 20)
 
 
+        self.forecastLabel = QLabel("Forecast:", self)
+        self.forecastLabel.setAlignment(Qt.AlignCenter)
+        self.forecastLabel.setGeometry(50, 420, 260, 20)
 
+        self.precipProbForecastLabel = QLabel("Forecast:", self)
+        self.precipProbForecastLabel.setAlignment(Qt.AlignTop)
+        self.precipProbForecastLabel.setGeometry(50, 460, 260, 250)
+
+        self.precipHrsForecastLabel = QLabel("Forecast:", self)
+        self.precipHrsForecastLabel.setAlignment(Qt.AlignTop)
+        self.precipHrsForecastLabel.setGeometry(230, 460, 260, 250)
 
 
         self.timer = QTimer(self)
@@ -248,6 +258,9 @@ class WeatherApp(QWidget):
             self.nextNewLabel.setText(f"Next New Moon: {new_dt.strftime('%b %d %I:%M %p')}")
             self.nextFullLabel.setText(f"Next Full Moon: {full_dt.strftime('%b %d %I:%M %p')}")
 
+
+        self.precipProbForecastLabel.setText("<u>Precipitation Probability</u><br>{day1}: {prob1}%<br>{day2}: {prob2}%<br>{day3}: {prob3}%<br>{day4}: {prob4}%<br>{day5}: {prob5}%<br>{day6}: {prob6}%<br>{day7}: {prob7}%".format(day1 = datetime.fromisoformat(meteoData["daily"]["sunrise"][0]).strftime("%A"), prob1 = meteoData["daily"]["precipitation_probability_max"][0], day2 = datetime.fromisoformat(meteoData["daily"]["sunrise"][1]).strftime("%A"), prob2 = meteoData["daily"]["precipitation_probability_max"][1], day3 = datetime.fromisoformat(meteoData["daily"]["sunrise"][2]).strftime("%A"), prob3 = meteoData["daily"]["precipitation_probability_max"][2], day4 = datetime.fromisoformat(meteoData["daily"]["sunrise"][3]).strftime("%A"), prob4 = meteoData["daily"]["precipitation_probability_max"][3], day5 = datetime.fromisoformat(meteoData["daily"]["sunrise"][4]).strftime("%A"), prob5 = meteoData["daily"]["precipitation_probability_max"][4], day6 = datetime.fromisoformat(meteoData["daily"]["sunrise"][5]).strftime("%A"), prob6 = meteoData["daily"]["precipitation_probability_max"][5], day7 = datetime.fromisoformat(meteoData["daily"]["sunrise"][6]).strftime("%A"), prob7 = meteoData["daily"]["precipitation_probability_max"][6]))
+        self.precipHrsForecastLabel.setText("<u>Precipitation Hours</u><br>{day1}: {hrs1} hours<br>{day2}: {hrs2} hours<br>{day3}: {hrs3} hours<br>{day4}: {hrs4} hours<br>{day5}: {hrs5} hours<br>{day6}: {hrs6} hours<br>{day7}: {hrs7} hours".format(day1 = datetime.fromisoformat(meteoData["daily"]["sunrise"][0]).strftime("%A"), hrs1 = meteoData["daily"]["precipitation_hours"][0], day2 = datetime.fromisoformat(meteoData["daily"]["sunrise"][1]).strftime("%A"), hrs2 = meteoData["daily"]["precipitation_hours"][1], day3 = datetime.fromisoformat(meteoData["daily"]["sunrise"][2]).strftime("%A"), hrs3 = meteoData["daily"]["precipitation_hours"][2], day4 = datetime.fromisoformat(meteoData["daily"]["sunrise"][3]).strftime("%A"), hrs4 = meteoData["daily"]["precipitation_hours"][3], day5 = datetime.fromisoformat(meteoData["daily"]["sunrise"][4]).strftime("%A"), hrs5 = meteoData["daily"]["precipitation_hours"][4], day6 = datetime.fromisoformat(meteoData["daily"]["sunrise"][5]).strftime("%A"), hrs6 = meteoData["daily"]["precipitation_hours"][5], day7 = datetime.fromisoformat(meteoData["daily"]["sunrise"][6]).strftime("%A"), hrs7 = meteoData["daily"]["precipitation_hours"][6]))
 
 
 if __name__ == '__main__':
